@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "es2015",
+    "module": "commonjs",
+    "lib": ["es2015", "esnext"],
+    "allowJs": true,
+    "strict": true,
+    "typeRoots" : ["./types", "./node_modules/@types"],
+    "outDir": "./dist"
+  },
+  "files": [
+     "src/index.ts",
+     "src/cli.ts"
+  ]
+}
