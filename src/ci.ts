@@ -3,99 +3,159 @@
  */
 
 
+type CIEvent = 'push'|'pull_request';
 type MatchEnv = {[envKey: string]: string};
-type EnvGetterFunc = (env: any) => EnvGetter|false;
-type EnvGetter = string|string[]|EnvGetterFunc;
-type PresenceEnvGetter = EnvGetter|MatchEnv;
+type EnvSourceResult<R=string> = [R, string]|[null,null]|null;
+type ResolveEnvSourceFunc<R> = typeof resolveEnvSource;
+type EnvSourceFunc<R> = (env: any, resolve: ResolveEnvSourceFunc<R>) => EnvSourceResult<R>;
+type EnvSource<R=string> = string|string[]|EnvSourceFunc<R>;
+type PresenceEnvSource = EnvSource|MatchEnv;
+
 
 interface CIProvider {
   id: string,
   name: string,
-  presence: EnvGetter|MatchEnv,
-  branch: EnvGetter|false,
-  tag: EnvGetter|false,
-  commitId: EnvGetter|false,
-  event: EnvGetter|false,
+  presence: PresenceEnvSource,
+  branch: EnvSource|false,
+  tag: EnvSource|false,
+  commitId: EnvSource|false,
+  // Is this a regular push build, or a pull request?
+  event: EnvSource<CIEvent>|false,
+  // The branch to merge into in case of a pull request
+  baseBranch: EnvSource|false,
 }
 
+
+// https://circleci.com/docs/1.0/environment-variables/
+const CircleCI: CIProvider = {
+  id: 'circleci',
+  name: "CircleCi",
+  presence: ["CIRCLECI"],
+  branch: "CIRCLE_BRANCH",
+  tag: "CIRCLE_TAG",
+  commitId: "CIRCLE_SHA1",
+  event: (env, r) => env.CI_PULL_REQUEST ? ['pull_request', 'CI_PULL_REQUEST'] : ['push', 'missing CI_PULL_REQUEST'],
+  baseBranch: false
+};
+
+
+// https://docs.travis-ci.com/user/environment-variables/
+const Travis: CIProvider = {
+  id: 'travis',
+  name: "Travis",
+  presence: "TRAVIS",
+  event: (env, r) => env.TRAVIS_EVENT_TYPE == 'pull_request'
+    ? r("TRAVIS_EVENT_TYPE")
+    : ['push', 'TRAVIS_EVENT_TYPE'],
+  tag: "TRAVIS_TAG",
+  commitId: ["TRAVIS_PULL_REQUEST_SHA", "TRAVIS_COMMIT"],
+  // If it's a pull request, TRAVIS_BRANCH contains the base branch!
+  branch: ["TRAVIS_PULL_REQUEST_BRANCH", "TRAVIS_BRANCH"],
+  // TRAVIS_BRANCH, but only if it's a pull request
+  baseBranch: (env, r) => env.TRAVIS_PULL_REQUEST_BRANCH
+    ? r('TRAVIS_BRANCH') : null
+};
+
+
+// https://wiki.jenkins.io/display/JENKINS/Building+a+software+project#Buildingasoftwareproject-JenkinsSetEnvironmentVariables
+const Jenkins: CIProvider = {
+  id: 'jenkins',
+  name: "Jenkins",
+  presence: "JENKINS_URL",
+  branch: ["GIT_BRANCH", "CVS_BRANCH"],
+  tag: false,
+  commitId: ["GIT_COMMIT", "SVN_REVISION"],
+  event: false,
+  baseBranch: false
+};
+
+
+// https://docs.gitlab.com/ee/ci/variables/
+const Gitlab: CIProvider = {
+  id: 'gitlab',
+  name: "Gitlab CI",
+  presence: "GITLAB_CI",
+  commitId: "CI_COMMIT_SHA",
+  tag: "CI_COMMIT_TAG",
+  // CI_COMMIT_REF_NAME might be a tag, we don't want to return that.
+  branch: (env, r) => env.CI_COMMIT_REF_NAME !== env.CI_COMMIT_TAG ? r("CI_COMMIT_REF_NAME") : null,
+  event: false,
+  baseBranch: false
+};
+
+
+// https://documentation.codeship.com/basic/builds-and-configuration/set-environment-variables/
+const CodeShip: CIProvider = {
+  id: 'codeship',
+  name: "Codeship",
+  presence: {CI_NAME: 'codeship'},
+  commitId: "CI_COMMIT_ID",
+  tag: false,
+  branch: "CI_BRANCH",
+  event: (env, r) => env.CI_PULL_REQUEST
+    ? ['pull_request', "CI_PULL_REQUEST"]
+    : ['push', 'missing CI_PULL_REQUEST'],
+  baseBranch: false
+};
+
+
+// http://readme.drone.io/0.5/usage/environment-reference/
+const DroneCI: CIProvider = {
+  id: 'drone',
+  name: "Drone CI",
+  presence: "DRONE",
+  commitId: "DRONE_COMMIT_SHA",
+  tag: (env, r) => env.DRONE_COMMIT_REF !== env.DRONE_COMMIT_BRANCH
+    ? r("DRONE_COMMIT_REF") : null,
+  branch: "DRONE_COMMIT_BRANCH",
+  // Can be (push, pull_request, tag)
+  event: (env, r) => env.DRONE_BUILD_EVENT == 'tag' ? null : r("DRONE_BUILD_EVENT"),
+  baseBranch: false  // Could be DRONE_REPO_BRANCH?
+};
+
+
+// https://www.appveyor.com/docs/environment-variables/
+const AppVeyor: CIProvider = {
+  id: 'appveyor',
+  name: "Appveyor",
+  presence: "APPVEYOR",
+  commitId: "APPVEYOR_REPO_COMMIT",
+  tag: "APPVEYOR_REPO_TAG_NAME",
+  // If it's a pull request, then according to the docs APPVEYOR_REPO_BRANCH
+  // is the name of the base branch. There is no other branch-related variable.
+  branch: (env, r) => env.APPVEYOR_PULL_REQUEST_NUMBER ? null : r("APPVEYOR_REPO_BRANCH"),
+  baseBranch: (env, r) => env.APPVEYOR_PULL_REQUEST_NUMBER ? r("APPVEYOR_REPO_BRANCH") : null,
+  event: env => env.APPVEYOR_PULL_REQUEST_NUMBER
+    ? ['pull_request', 'APPVEYOR_PULL_REQUEST_NUMBER']
+    : ['push', 'missing APPVEYOR_PULL_REQUEST_NUMBER']
+}
+
+
 const ENVS: CIProvider[] = [
-  // https://circleci.com/docs/1.0/environment-variables/
-  {
-    id: 'circleci',
-    name: "CircleCi",
-    presence: ["CIRCLECI"],
-    branch: "CIRCLE_BRANCH",
-    tag: "CIRCLE_TAG",
-    commitId: "CIRCLE_SHA1",
-    event: false
-  },
+  CircleCI,
+  Travis,
+  Jenkins,
+  AppVeyor,
+  DroneCI,
+  CodeShip,
+  Gitlab
+]
 
-  // https://docs.travis-ci.com/user/environment-variables/
-  {
-    id: 'travis',
-    name: "Travis",
-    presence: "TRAVIS",
-    event: "TRAVIS_EVENT_TYPE",
-    branch: "",
-    tag: ["TRAVIS_PULL_REQUEST_BRANCH", "TRAVIS_BRANCH"],
-    commitId: ["TRAVIS_PULL_REQUEST_SHA", "TRAVIS_COMMIT"]
-  },
 
-  // https://wiki.jenkins.io/display/JENKINS/Building+a+software+project#Buildingasoftwareproject-JenkinsSetEnvironmentVariables
+type CIInfo = [
   {
-    id: 'jenkins',
-    name: "Jenkins",
-    presence: "JENKINS_URL",
-    branch: ["GIT_BRANCH", "CVS_BRANCH"],
-    tag: false,
-    commitId: ["GIT_COMMIT", "SVN_REVISION"],
-    event: false
+    id: string,
+    name: string,
+    commitId: string|null,
+    tag: string|null,
+    branch: string|null,
+    event: CIEvent|null
   },
-
-  // https://docs.gitlab.com/ee/ci/variables/
   {
-    id: 'gitlab',
-    name: "Gitlab CI",
-    presence: "GITLAB_CI",
-    commitId: "CI_COMMIT_SHA",
-    tag: "CI_COMMIT_TAG",
-    // CI_COMMIT_REF_NAME might be a tag, we don't want to return that.
-    branch: (env) => env.CI_COMMIT_REF_NAME !== env.CI_COMMIT_TAG ? "CI_COMMIT_REF_NAME" : false,
-    event: "CI_PIPELINE_SOURCE"
-  },
-
-  // https://documentation.codeship.com/basic/builds-and-configuration/set-environment-variables/
-  {
-    id: 'codeship',
-    name: "Codeship",
-    presence: {CI_NAME: 'codeship'},
-    commitId: "CI_COMMIT_ID",
-    tag: false,
-    branch: "CI_BRANCH",
-    event: false
-  },
-
-  // http://readme.drone.io/0.5/usage/environment-reference/
-  {
-    id: 'drone',
-    name: "Drone CI",
-    presence: "DRONE",
-    commitId: "DRONE_COMMIT_SHA",
-    tag: "DRONE_COMMIT_REF",
-    branch: "DRONE_COMMIT_REF",
-    event: "DRONE_BUILD_EVENT"
-  },
-
-  // https://www.appveyor.com/docs/environment-variables/
-  {
-    id: 'appveyor',
-    name: "Appveyor",
-    presence: "APPVEYOR",
-    commitId: "APPVEYOR_REPO_COMMIT",
-    tag: "APPVEYOR_REPO_TAG_NAME",
-    // If it's a pull request, the we only get the base branch apparently.
-    branch: env => env.APPVEYOR_PULL_REQUEST_NUMBER ? false : "APPVEYOR_REPO_BRANCH",
-    event: false
+    commitId: string|null,
+    tag: string|null,
+    branch: string|null,
+    event: string|null
   }
 ]
 
@@ -104,7 +164,7 @@ const ENVS: CIProvider[] = [
  * Tries to figure out the CI. Will then return a 2-tuple
  * [Info from CI, Env-Keys we read the info from].
  */
-export function getCIInfo() {
+export function getCIInfo(): CIInfo|[null,null] {
   for (let ciDef of ENVS) {
     // Check if this CI is present
     const ciPresent = checkPresence(ciDef.presence);
@@ -112,10 +172,10 @@ export function getCIInfo() {
       continue;
     }
 
-    const resolvedCommitId = resolveEnvGetter(ciDef.commitId);
-    const resolvedTag = resolveEnvGetter(ciDef.tag);
-    const resolvedBranch = resolveEnvGetter(ciDef.branch);
-    const resolvedEvent = resolveEnvGetter(ciDef.event);
+    const resolvedCommitId = resolveEnvSource(ciDef.commitId);
+    const resolvedTag = resolveEnvSource(ciDef.tag);
+    const resolvedBranch = resolveEnvSource(ciDef.branch);
+    const resolvedEvent = resolveEnvSource<CIEvent>(ciDef.event);
 
     return [
       {
@@ -139,13 +199,13 @@ export function getCIInfo() {
 }
 
 
-function checkPresence(presence: PresenceEnvGetter) {
+function checkPresence(presence: PresenceEnvSource) {
   if (typeof presence == 'object') {
     const invalidKeys = Object.keys(presence).filter(envKey => {
       return process.env[envKey] !== (presence as MatchEnv)[envKey];
     })
   }
-  const [isPresent] = resolveEnvGetter((presence as EnvGetter));
+  const [isPresent] = resolveEnvSource((presence as EnvSource));
   return !!isPresent;
 }
 
@@ -153,30 +213,36 @@ function checkPresence(presence: PresenceEnvGetter) {
 /**
  * Return value is a 2-tuple [value from environment, env key read from].
  */
-function resolveEnvGetter(getter: EnvGetter|false): [string|null, string|null] {
-  if (getter === false) {
+function resolveEnvSource<T=string>(sourceDef: EnvSource<T>|false): [T,string]|[null,null] {
+  // No env source provided
+  if (sourceDef === false) {
     return [null, null];
   }
 
-  if (typeof getter == 'string') {
-    const value = process.env[getter] || null;
-    return [value, getter];
+  // Simple string: Just read from that env variable.
+  if (typeof sourceDef == 'string') {
+    const value = process.env[sourceDef] || null;
+    return [value, sourceDef];
   }
 
-  // See if one of the variables exist
-  if (Array.isArray(getter)) {
-    for (let envVar of getter) {
+  // Array: See if one of the variables given exists.
+  if (Array.isArray(sourceDef)) {
+    for (let envVar of sourceDef) {
       if (process.env[envVar]) {
-        return [(process.env[envVar] as string), envVar];
+        return [(process.env[envVar] as T), envVar];
       }
     }
     return [null, null];
   }
 
-  if (typeof getter == 'function') {
-    const newGetter = getter(process.env);
-    return resolveEnvGetter(newGetter);
+  // Function: The function can provide custom logic.
+  if (typeof sourceDef == 'function') {
+    const result = sourceDef(process.env, resolveEnvSource);
+    if (!result) {
+      return [null, null];
+    }
+    return result;
   }
 
-  return [null, null];
+  throw new Error('Invalid value passed.');
 }
