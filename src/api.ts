@@ -14,6 +14,7 @@ export interface Reading {
   bundleset: string;
   commit?: string;
   branch?: string;
+  isFeatureBranch?: string|boolean,
   parentCommits?: string[];
 };
 

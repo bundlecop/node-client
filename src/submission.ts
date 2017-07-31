@@ -24,34 +24,46 @@ export interface SubmissionOptions {
   projectKey: string|null;
   apiUrl: string|null;
   bundleSet: string|null;
+
   commit: string|null;
-  parentCommits: string|null;
+  parentCommits: string[]|null;
   branch: string|null;
+  baseBranch: string|null;
+  isFeatureBranch: boolean|null;
+
   onlyIfEnv: string|null;
 }
 
 const DEFAULT_API_URL = 'https://api.bundlecop.com/api';
 
 
-function readOptionsFromEnv(): SubmissionOptions {
-  const mapping: any = {
-    projectKey: 'BUNDLECOP_KEY'
-  };
-  function readOption(name: string, split?: boolean): string|null {
-    const envKey = mapping[name] || `BUNDLECOP_${name.toUpperCase()}`;
-    let value = process.env[envKey];
-    if (split && value) {
-      value = value.split(',');
-    }
-    return value || null;
-  }
+const MAPPING: any = {
+  projectKey: 'BUNDLECOP_KEY'
+};
+function readOption(name: string, split?: boolean): string|null {
+  const envKey = MAPPING[name] || `BUNDLECOP_${name.toUpperCase()}`;
+  let value = process.env[envKey];
+  return value || null;
+}
 
+function readOptionExt<T>(name: string, func: (v: string) => T) {
+  const value = readOption(name);
+  if (value === null) {
+    return value;
+  }
+  return func(value);
+}
+
+
+function readOptionsFromEnv(): SubmissionOptions {
   return {
     projectKey: readOption('projectKey'),
     apiUrl: readOption('apiUrl'),
     bundleSet: readOption('bundleSet'),
     commit: readOption('commit'),
-    parentCommits: readOption('parentCommits'),
+    parentCommits: readOptionExt('parentCommits', s => s.split(',')),
+    baseBranch: readOption('baseBranch'),
+    isFeatureBranch: readOptionExt('isFeatureBranch', s => asBool(s)),
     branch: readOption('branch'),
     onlyIfEnv: readOption('onlyifEnv')
   }
@@ -89,6 +101,8 @@ export default async function submitReading(
     return;
   }
 
+  // TODO: Refactor, pass a {cli, env, ci, repo} dict; the order of checkign
+  // is then enforced elsewhere + we are sure we don't miss anything.
   const {values, valueSources} = selectValues({
     apiUrl: [
       [explicitOptions.apiUrl, 'options'],
@@ -103,25 +117,40 @@ export default async function submitReading(
 
     commit: [
       [explicitOptions.commit, 'specified on command line'],
+      [envData.commit, 'environment'],
       ciData && [ciData.commitId, `found in CI env var ${sourceKeys!.commitId}`],
       repoData && [repoData.commitId, `found via ${repoData.system} repo`],
     ],
 
     branch: [
       [explicitOptions.branch, 'specified on command line'],
+      [envData.branch, 'environment'],
       ciData && [ciData.branch, `found in CI env var ${sourceKeys!.branch}`],
       repoData && [repoData.branch, `found via ${repoData.system} repo`],
     ],
 
     parentCommits: [
       [explicitOptions.parentCommits, 'specified on command line'],
+      [envData.parentCommits, 'environment'],
       repoData && [repoData.parentCommitIds, `found via ${repoData.system} repo`],
     ],
 
     bundleSet: [
       [explicitOptions.bundleSet, 'options'],
       [envData.bundleSet, 'environment']
-    ]
+    ],
+
+    isFeatureBranch: [
+      [explicitOptions.isFeatureBranch, 'options'],
+      [envData.isFeatureBranch, 'environment'],
+      ciData && [ciData.event == 'pull_request', `found in CI env var ${sourceKeys!.event}`],
+    ],
+
+    baseBranch: [
+      [explicitOptions.baseBranch, 'options'],
+      [envData.baseBranch, 'environment'],
+      ciData && [ciData.baseBranch, `found in CI env var ${sourceKeys!.baseBranch}`],
+    ],
   });
 
   // At this point, make sure we have all the values we need.
@@ -145,6 +174,11 @@ export default async function submitReading(
   outputDataPoint('Commit', 'commit');
   outputDataPoint('Parent Commits', 'parentCommits');
   outputDataPoint('Branch', 'branch');
+  if (values.baseBranch) {
+    outputDataPoint('Base Branch', 'baseBranch');
+  } else {
+    outputDataPoint('Is Feature Branch', 'isFeatureBranch');
+  }
 
   // So, submit everything
   const api = new Api(values.apiUrl!, values.projectKey!);
@@ -153,7 +187,8 @@ export default async function submitReading(
     bundleset: values.bundleSet!,
     parentCommits: forceUndefined((values.parentCommits as any)),
     commit: forceUndefined(values.commit),
-    branch: forceUndefined(values.branch)
+    branch: forceUndefined(values.branch),
+    isFeatureBranch: forceUndefined(values.baseBranch || values.isFeatureBranch)
   });
 
   console.log('');
@@ -222,4 +257,14 @@ function pickOne(values: ValuePickers): ValuePickerResult {
     return [value, description];
   }
   return [null, null];
+}
+
+
+function asBool(s: string) {
+  // Is the given string a known false?
+  if (!s || s.toLowerCase() == "false" || s == '0') {
+    return false;
+  }
+
+  return true;
 }

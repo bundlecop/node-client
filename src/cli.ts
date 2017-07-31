@@ -80,6 +80,18 @@ yargs
             ' will be compare to. Instead of explicitly specifying the commit, you can also use '+
             ' the --branch option'
         })
+        .option('base-branch', {
+          type: 'string',
+          describe: 'If this is a feature branch, such as a pull request, and you want to compare '+
+            'the size to a base branch, such as the master, set the name of the base branch. '+
+            'This implies --is-feature-branch.'
+        })
+        .option('is-feature-branch', {
+          type: 'boolean',
+          describe: 'If this is a feature branch, such as a pull request, and you want to compare '+
+            'the size to a base branch, such as the master, set this option. The difference to '+
+            '--base-branch is that you do not know the name of the base branch.'
+        })
 
         .option('include', {
           type: 'string',
@@ -115,7 +127,9 @@ yargs
           bundleSet: argv.bundleset,
           commit: argv.commit,
           branch: argv.branch,
-          parentCommits: argv.parentCommits,
+          parentCommits: (argv.parentCommits as string[]),
+          baseBranch: (argv.baseBranch),
+          isFeatureBranch: (argv.isFeatureBranch as boolean),
           projectKey: argv.projectKey,
           apiUrl: argv.apiUrl,
           onlyIfEnv: argv.onlyIfEnv
