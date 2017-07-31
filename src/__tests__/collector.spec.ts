@@ -16,25 +16,25 @@ describe('removing the base folder from a filename', function () {
 
 describe('parsing a hash from a filename', function () {
   it('does nothing if the number of parts is too small', function () {
-    assert.equal(removeFileNameHash('test....exe'), 'test....exe');
-    assert.equal(removeFileNameHash('/foo/test.exe'), '/foo/test.exe');
+    assert.deepEqual(removeFileNameHash('test....exe'), {filename: 'test....exe', hash: ''});
+    assert.deepEqual(removeFileNameHash('/foo/test.exe'),  {filename: '/foo/test.exe', hash: ''});
   });
 
   it('handles multi-part filenames without a valid hash', function () {
-    assert.equal(removeFileNameHash('test.rosemary.js.map'), 'test.rosemary.js.map');
-    assert.equal(removeFileNameHash('0000.rosemary____js.map'), '0000.rosemary____js.map');
+    assert.deepEqual(removeFileNameHash('test.rosemary.js.map'),  {filename: 'test.rosemary.js.map', hash: ''});
+    assert.deepEqual(removeFileNameHash('0000.rosemary____js.map'),  {filename: '0000.rosemary____js.map', hash: ''});
   });
 
   it('handles a hash in various places', function () {
-    assert.equal(removeFileNameHash('test.a43ff0.js.map'), 'test.js.map');
-    assert.equal(removeFileNameHash('a43ff0-test.js.map'), 'test.js.map');
+    assert.deepEqual(removeFileNameHash('test.a43ff0.js.map'), {filename: 'test.js.map', hash: 'a43ff0'});
+    assert.deepEqual(removeFileNameHash('a43ff0-test.js.map'), {filename: 'test.js.map', hash: 'a43ff0'});
   });
 
   it('handles two potential hashes', function () {
     // Uses the one further to the end
-    assert.equal(removeFileNameHash('test.a43ff0.00000.js.map'), 'test.a43ff0.js.map');
+    assert.deepEqual(removeFileNameHash('test.a43ff0.00000.js.map'), {filename: 'test.a43ff0.js.map', hash: '00000'});
     // But not if it's the last one, possibly an extension
-    assert.equal(removeFileNameHash('a43ff0-test.js.map.12345'), 'test.js.map.12345');
+    assert.deepEqual(removeFileNameHash('a43ff0-test.js.map.12345'), {filename: 'test.js.map.12345', hash: 'a43ff0'});
   });
 });
 
