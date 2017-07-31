@@ -1,0 +1,5 @@
+2017-07-31 (2.1.0)
+------------------
+
+- Fix some CI detection bugs.
+- Send pull request and base branch info to the server.
