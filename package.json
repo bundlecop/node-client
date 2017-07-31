@@ -21,7 +21,7 @@
   "scripts": {
     "dev": "tsc --watch",
     "build": "tsc",
-    "test": "ts-mocha  -p . src/**/*.spec.ts",
+    "test": "ts-mocha src/**/*.spec.ts",
     "cli": "node dist/cli.js",
     "publish-version": "yarn run build && yarn publish"
   },
