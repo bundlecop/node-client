@@ -199,11 +199,12 @@ export function getCIInfo(): CIInfo|[null,null] {
 }
 
 
-function checkPresence(presence: PresenceEnvSource) {
+export function checkPresence(presence: PresenceEnvSource) {
   if (typeof presence == 'object') {
     const invalidKeys = Object.keys(presence).filter(envKey => {
       return process.env[envKey] !== (presence as MatchEnv)[envKey];
-    })
+    });
+    return !invalidKeys;
   }
   const [isPresent] = resolveEnvSource((presence as EnvSource));
   return !!isPresent;
@@ -244,5 +245,5 @@ function resolveEnvSource<T=string>(sourceDef: EnvSource<T>|false): [T,string]|[
     return result;
   }
 
-  throw new Error('Invalid value passed.');
+  throw new Error('Invalid value passed: ' + sourceDef);
 }
