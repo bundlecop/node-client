@@ -1,6 +1,6 @@
 {
   "name": "bundlecop",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "The official client-side submission tool for BundleCop.",
   "main": "dist/index.js",
   "license": "MIT",
