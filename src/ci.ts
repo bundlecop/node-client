@@ -19,6 +19,7 @@ interface CIProvider {
   branch: EnvSource|false,
   tag: EnvSource|false,
   commitId: EnvSource|false,
+  commitMessage: EnvSource|false,
   // Is this a regular push build, or a pull request?
   event: EnvSource<CIEvent>|false,
   // The branch to merge into in case of a pull request
@@ -34,6 +35,7 @@ const CircleCI: CIProvider = {
   branch: "CIRCLE_BRANCH",
   tag: "CIRCLE_TAG",
   commitId: "CIRCLE_SHA1",
+  commitMessage: false,
   event: (env, r) => env.CI_PULL_REQUEST ? ['pull_request', 'CI_PULL_REQUEST'] : ['push', 'missing CI_PULL_REQUEST'],
   baseBranch: false
 };
@@ -49,6 +51,7 @@ const Travis: CIProvider = {
     : ['push', 'TRAVIS_EVENT_TYPE'],
   tag: "TRAVIS_TAG",
   commitId: ["TRAVIS_PULL_REQUEST_SHA", "TRAVIS_COMMIT"],
+  commitMessage: "TRAVIS_COMMIT_MESSAGE",
   // If it's a pull request, TRAVIS_BRANCH contains the base branch!
   branch: ["TRAVIS_PULL_REQUEST_BRANCH", "TRAVIS_BRANCH"],
   // TRAVIS_BRANCH, but only if it's a pull request
@@ -65,6 +68,7 @@ const Jenkins: CIProvider = {
   branch: ["GIT_BRANCH", "CVS_BRANCH"],
   tag: false,
   commitId: ["GIT_COMMIT", "SVN_REVISION"],
+  commitMessage: false,
   event: false,
   baseBranch: false
 };
@@ -76,6 +80,7 @@ const Gitlab: CIProvider = {
   name: "Gitlab CI",
   presence: "GITLAB_CI",
   commitId: "CI_COMMIT_SHA",
+  commitMessage: false,
   tag: "CI_COMMIT_TAG",
   // CI_COMMIT_REF_NAME might be a tag, we don't want to return that.
   branch: (env, r) => env.CI_COMMIT_REF_NAME !== env.CI_COMMIT_TAG ? r("CI_COMMIT_REF_NAME") : null,
@@ -90,6 +95,7 @@ const CodeShip: CIProvider = {
   name: "Codeship",
   presence: {CI_NAME: 'codeship'},
   commitId: "CI_COMMIT_ID",
+  commitMessage: "CI_MESSAGE",
   tag: false,
   branch: "CI_BRANCH",
   event: (env, r) => env.CI_PULL_REQUEST
@@ -105,6 +111,7 @@ const DroneCI: CIProvider = {
   name: "Drone CI",
   presence: "DRONE",
   commitId: "DRONE_COMMIT_SHA",
+  commitMessage: "DRONE_COMMIT_MESSAGE",
   tag: (env, r) => env.DRONE_COMMIT_REF !== env.DRONE_COMMIT_BRANCH
     ? r("DRONE_COMMIT_REF") : null,
   branch: "DRONE_COMMIT_BRANCH",
@@ -120,6 +127,7 @@ const AppVeyor: CIProvider = {
   name: "Appveyor",
   presence: "APPVEYOR",
   commitId: "APPVEYOR_REPO_COMMIT",
+  commitMessage: "APPVEYOR_REPO_COMMIT_MESSAGE",
   tag: "APPVEYOR_REPO_TAG_NAME",
   // If it's a pull request, then according to the docs APPVEYOR_REPO_BRANCH
   // is the name of the base branch. There is no other branch-related variable.
