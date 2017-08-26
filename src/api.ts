@@ -13,6 +13,7 @@ export interface Reading {
   files: FileReading[];
   bundleset: string;
   commit?: string;
+  commitMessage?: string;
   branch?: string;
   isFeatureBranch?: string|boolean,
   parentCommits?: string[];

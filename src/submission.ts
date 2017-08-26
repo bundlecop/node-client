@@ -26,6 +26,7 @@ export interface SubmissionOptions {
   bundleSet: string|null;
 
   commit: string|null;
+  commitMessage: string|null;
   parentCommits: string[]|null;
   branch: string|null;
   baseBranch: string|null;
@@ -61,6 +62,7 @@ function readOptionsFromEnv(): SubmissionOptions {
     apiUrl: readOption('apiUrl'),
     bundleSet: readOption('bundleSet'),
     commit: readOption('commit'),
+    commitMessage: readOption('commitMessage'),
     parentCommits: readOptionExt('parentCommits', s => s.split(',')),
     baseBranch: readOption('baseBranch'),
     isFeatureBranch: readOptionExt('isFeatureBranch', s => asBool(s)),
@@ -120,6 +122,12 @@ export default async function submitReading(
       [envData.commit, 'environment'],
       ciData && [ciData.commitId, `found in CI env var ${sourceKeys!.commitId}`],
       repoData && [repoData.commitId, `found via ${repoData.system} repo`],
+    ],
+
+    commitMessage: [
+      [envData.commitMessage, 'environment'],
+      ciData && [ciData.commitMessage, `found in CI env var ${sourceKeys!.commitMessage}`],
+      repoData && [repoData.commitMessage, `found via ${repoData.system} repo`],
     ],
 
     branch: [
@@ -187,6 +195,7 @@ export default async function submitReading(
     bundleset: values.bundleSet!,
     parentCommits: forceUndefined((values.parentCommits as any)),
     commit: forceUndefined(values.commit),
+    commitMessage: forceUndefined(values.commitMessage),
     branch: forceUndefined(values.branch),
     isFeatureBranch: forceUndefined(values.baseBranch || values.isFeatureBranch)
   });

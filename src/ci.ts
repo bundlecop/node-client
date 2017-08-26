@@ -155,6 +155,7 @@ type CIInfo = [
     id: string,
     name: string,
     commitId: string|null,
+    commitMessage: string|null,
     tag: string|null,
     branch: string|null,
     event: CIEvent|null,
@@ -162,6 +163,7 @@ type CIInfo = [
   },
   {
     commitId: string|null,
+    commitMessage: string|null,
     tag: string|null,
     branch: string|null,
     event: string|null,
@@ -183,6 +185,7 @@ export function getCIInfo(): CIInfo|[null,null] {
     }
 
     const resolvedCommitId = resolveEnvSource(ciDef.commitId);
+    const resolvedCommitMessage = resolveEnvSource(ciDef.commitMessage);
     const resolvedTag = resolveEnvSource(ciDef.tag);
     const resolvedBranch = resolveEnvSource(ciDef.branch);
     const resolvedEvent = resolveEnvSource<CIEvent>(ciDef.event);
@@ -193,6 +196,7 @@ export function getCIInfo(): CIInfo|[null,null] {
         id: ciDef.id,
         name: ciDef.name,
         commitId: resolvedCommitId[0],
+        commitMessage: resolvedCommitMessage[0],
         tag: resolvedTag[0],
         branch: resolvedBranch[0],
         event: resolvedEvent[0],
@@ -200,6 +204,7 @@ export function getCIInfo(): CIInfo|[null,null] {
       },
       {
         commitId: resolvedCommitId[1],
+        commitMessage: resolvedCommitMessage[1],
         tag: resolvedTag[1],
         branch: resolvedBranch[1],
         event: resolvedEvent[1],

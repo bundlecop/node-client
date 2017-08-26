@@ -126,6 +126,7 @@ yargs
         await submitReading(files, {
           bundleSet: argv.bundleset,
           commit: argv.commit,
+          commitMessage: "",
           branch: argv.branch,
           parentCommits: (argv.parentCommits as string[]),
           baseBranch: (argv.baseBranch),
