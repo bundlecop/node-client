@@ -1,10 +1,16 @@
-2017-09-09 (2.1.2)
+2017-09-15 (2.2.0)
+------------------
+
+- Submit commit message with the reading.
+
+
+2017-08-09 (2.1.2)
 ------------------
 
 - Fix broken package, lacking a dependency.
 
 
-2017-09-09 (2.1.1)
+2017-08-09 (2.1.1)
 ------------------
 
 - Support older, pre-ES2015 node versions.
