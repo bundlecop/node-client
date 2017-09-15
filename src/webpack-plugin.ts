@@ -16,6 +16,7 @@ export default class BundleCopPlugin implements Plugin {
       branch: null,
       bundleSet: null,
       commit: null,
+      commitMessage: null,
       parentCommits: null,
       projectKey: null,
       apiUrl: null,
